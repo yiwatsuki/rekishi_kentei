@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>歴史検定 日本史2級 練習問題</title>
   <style>
-    /* 全体のスタイル */
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       background-color: #f5f5f7;
@@ -38,7 +37,6 @@
       line-height: 1.5;
     }
 
-    /* 選択肢ボタンのスタイル */
     .options-container {
       display: flex;
       flex-direction: column;
@@ -64,12 +62,11 @@
       cursor: default;
     }
 
-    /* 正誤判定エリア */
     .result-container {
       margin-top: 20px;
       padding: 16px;
       border-radius: 8px;
-      display: none; /* 初期状態は非表示 */
+      display: none;
     }
 
     .result-container.correct {
@@ -96,7 +93,6 @@
       color: #333;
     }
 
-    /* 次へボタン */
     .next-btn {
       margin-top: 16px;
       padding: 12px 20px;
@@ -117,14 +113,11 @@
 <body>
 
   <div class="quiz-card">
-    <div class="quiz-header" id="quiz-header">問題 1 / 2</div>
-    <div class="question-text" id="question-text">読み込み中...</div>
+    <div class="quiz-header" id="quiz-header">データを読み込み中...</div>
+    <div class="question-text" id="question-text">スプレッドシートから問題を読み込んでいます...</div>
 
-    <div class="options-container" id="options-container">
-      <!-- JavaScriptで動的にボタンを挿入します -->
-    </div>
+    <div class="options-container" id="options-container"></div>
 
-    <!-- 正解・不正解と解説の表示領域 -->
     <div class="result-container" id="result-container">
       <div class="result-title" id="result-title"></div>
       <div class="explanation-text" id="explanation-text"></div>
@@ -133,37 +126,85 @@
   </div>
 
   <script>
-    // 問題データ（配列形式）
-    const quizData = [
-      {
-        question: "摂関政治全盛期を築き、「この世をば 我が世とぞ思う…」の歌を詠んだことで知られる人物は誰か？",
-        options: ["藤原道長", "藤原頼通", "藤原良房", "藤原基経"],
-        answerIndex: 0, // 0番目（藤原道長）が正解
-        explanation: "正解は「藤原道長」です。娘たちを次々と天皇の妃にし、外戚として強い権限を握りました。"
-      },
-      {
-        question: "鎌倉幕府の成立過程において、1185年に源頼朝が全国に設置を認めさせたものはどれか？",
-        options: ["国司・郡司", "守護・地頭", "管領・探題", "地頭・庄屋"],
-        answerIndex: 1, // 1番目（守護・地頭）が正解
-        explanation: "正解は「守護・地頭」です。国ごとに守護、荘園や公領ごとに地頭を置き、軍事・警察権や年貢徴収権を握りました。"
-      }
-    ];
+    // ★ご自身のCSV URLを設定してください★
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQPLd1HtdB6jV64tCcQCG2PTs8zaimJ3K-7ZLjYAg6SwbaywuwFcA7rVD8yNAwJoXLNBGFkGDyHIFFT/pub?gid=0&single=true&output=csv";
 
+    let quizData = [];
     let currentQuestionIndex = 0;
 
-    // 問題を表示する関数
+    // 配列をランダムにシャッフルする関数（ダステンフェルドの手法）
+    function shuffleArray(array) {
+      const clone = [...array];
+      for (let i = clone.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [clone[i], clone[j]] = [clone[j], clone[i]];
+      }
+      return clone;
+    }
+
+    // CSVパース処理
+    function parseCSV(text) {
+      const lines = text.trim().split("\n");
+      const result = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i]) continue;
+        
+        const cols = lines[i].split(",").map(col => col.replace(/^"|"$/g, '').trim());
+        
+        if (cols.length >= 8) {
+          const originalOptions = [cols[2], cols[3], cols[4], cols[5]];
+          const correctOptionText = originalOptions[parseInt(cols[6], 10) - 1]; // 元の正解テキストを保持
+
+          result.push({
+            id: cols[0],
+            question: cols[1],
+            originalOptions: originalOptions,
+            correctOptionText: correctOptionText,
+            explanation: cols[7]
+          });
+        }
+      }
+      return result;
+    }
+
+    // スプレッドシートからデータを取得し、問題順もランダムにする
+    async function fetchQuizData() {
+      try {
+        const response = await fetch(csvUrl);
+        const csvText = await response.text();
+        const parsedData = parseCSV(csvText);
+
+        if (parsedData.length > 0) {
+          // 問題の出題順自体もランダムにする場合はここを有効化
+          quizData = shuffleArray(parsedData);
+          loadQuestion();
+        } else {
+          document.getElementById("question-text").innerText = "問題データが見つかりませんでした。";
+        }
+      } catch (error) {
+        console.error("データ取得エラー:", error);
+        document.getElementById("question-text").innerText = "データの読み込みに失敗しました。";
+      }
+    }
+
+    // 問題を表示（選択肢を毎回シャッフル）
     function loadQuestion() {
       const currentQuiz = quizData[currentQuestionIndex];
 
-      // ヘッダーと問題文の更新
       document.getElementById("quiz-header").innerText = `問題 ${currentQuestionIndex + 1} / ${quizData.length}`;
       document.getElementById("question-text").innerText = currentQuiz.question;
 
-      // 選択肢ボタンの生成
-      const optionsContainer = document.getElementById("options-container");
-      optionsContainer.innerHTML = ""; // 過去のボタンを消去
+      // 選択肢をランダムにシャッフル
+      const shuffledOptions = shuffleArray(currentQuiz.originalOptions);
 
-      currentQuiz.options.forEach((optionText, index) => {
+      // 新しい配列の中で正解のテキストがどこにあるかを再検索してインデックスを特定
+      currentQuiz.currentAnswerIndex = shuffledOptions.indexOf(currentQuiz.correctOptionText);
+
+      const optionsContainer = document.getElementById("options-container");
+      optionsContainer.innerHTML = "";
+
+      shuffledOptions.forEach((optionText, index) => {
         const button = document.createElement("button");
         button.className = "option-btn";
         button.innerText = `${index + 1}. ${optionText}`;
@@ -171,23 +212,20 @@
         optionsContainer.appendChild(button);
       });
 
-      // 結果表示エリアを非表示にする
       document.getElementById("result-container").style.display = "none";
     }
 
-    // 回答が選択された時の処理
+    // 回答選択
     function selectAnswer(selectedIndex) {
       const currentQuiz = quizData[currentQuestionIndex];
       const resultContainer = document.getElementById("result-container");
       const resultTitle = document.getElementById("result-title");
       const explanationText = document.getElementById("explanation-text");
 
-      // ボタンを無効化（2回以上押せないようにする）
       const buttons = document.querySelectorAll(".option-btn");
       buttons.forEach(btn => btn.disabled = true);
 
-      // 正誤判定
-      if (selectedIndex === currentQuiz.answerIndex) {
+      if (selectedIndex === currentQuiz.currentAnswerIndex) {
         resultContainer.className = "result-container correct";
         resultTitle.innerText = "⭕ 正解！";
       } else {
@@ -195,19 +233,17 @@
         resultTitle.innerText = "❌ 不正解...";
       }
 
-      // 解説を表示
       explanationText.innerText = currentQuiz.explanation;
       resultContainer.style.display = "block";
     }
 
-    // 次の問題に進む処理
+    // 次の問題
     function nextQuestion() {
       currentQuestionIndex++;
 
       if (currentQuestionIndex < quizData.length) {
         loadQuestion();
       } else {
-        // すべての問題が終わった場合
         document.getElementById("quiz-header").innerText = "終了！";
         document.getElementById("question-text").innerText = "お疲れ様でした！全問題が終了しました。";
         document.getElementById("options-container").innerHTML = "";
@@ -215,8 +251,8 @@
       }
     }
 
-    // 初回読み込み時の実行
-    loadQuestion();
+    // アプリ起動時にデータ取得を開始
+    fetchQuizData();
   </script>
 </body>
 </html>
